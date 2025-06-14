@@ -1,0 +1,613 @@
+{
+  "name": "DFD",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Document Forgery Detection",
+        "formDescription": "a comprehensive document forgery detection system specifically designed for certificate analysis using cutting-edge AI technologies",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Documents",
+              "fieldType": "file",
+              "acceptFileTypes": ".jpg, .png",
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "af775d5e-20cc-4c67-a5b3-f5b5b7c73db3",
+      "name": "On form submission",
+      "webhookId": "2e96ea7a-c5a1-44cf-a41e-3b7c20cc9830"
+    },
+    {
+      "parameters": {
+        "jsCode": "const binaryData = $input.item.binary;\nconst output = [];\n\nfor (const key in binaryData) {\n  output.push({\n    json: {\n      filename: binaryData[key].fileName || key,\n      mimeType: binaryData[key].mimeType,\n      size: binaryData[key].fileSize || null\n    },\n    binary: {\n      data: binaryData[key]\n    }\n  });\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "id": "bb59e29a-203b-42ef-adc5-337701552e95",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/analyze_image",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        360,
+        140
+      ],
+      "id": "f42b3b69-75cd-4af4-8e9f-e56611ec29d0",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eb0fa287-2c99-4237-9483-c5c038364128",
+              "name": "filename",
+              "value": "={{ $json.filename }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        -60
+      ],
+      "id": "68522f60-08cb-4db9-b496-5afe3c34074c",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2bd99a99-1ce0-4a93-aaec-eb7354485c29",
+              "name": "sessionId",
+              "value": "=session-{{ $now }}",
+              "type": "string"
+            },
+            {
+              "id": "787d5d8f-d6ad-4a80-93ec-9a1aced19cef",
+              "name": "extracted_text",
+              "value": "={{ $json.extracted_text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        540,
+        240
+      ],
+      "id": "28bfb285-8fc2-4a19-97f5-1922c11787b2",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You will receive raw text extracted by OCR from an unknown certificate as Input. Your job is to:\n\n1. **Fix only obvious OCR errors**—spelling mistakes, misplaced punctuation, garbled words that are obvious misreads (e.g. “Stodent” → “Student”).\n2. **Restore original formatting**—preserve line breaks, headings, labels, and the general layout as closely as possible.\n3. **Do NOT add, remove, or paraphrase content**—keep every word and number, even if unintelligible, unless it’s clearly a misrecognition.\n4. **Do NOT re‑write in fluent or polished prose**—avoid rewriting sentences or rephrasing; make only the smallest corrections needed for readability.\n5. **Do NOT inject new information**—do not guess missing data or fill in context.\n\n**Input**: {{ $json.extracted_text }}\n\n**Output**: the cleaned text, preserving line breaks and label structure.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        720,
+        220
+      ],
+      "id": "826ae6e9-03ac-4fb2-9445-f25ee31f80ad",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "llama3.2:3b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        720,
+        420
+      ],
+      "id": "63356bfa-37fd-4a6c-9259-7da4eaa45072",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "L8qTvlzayTUxtcvw",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "collectionName": "formatLLM_history",
+        "contextWindowLength": 15
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryMongoDbChat",
+      "typeVersion": 1,
+      "position": [
+        860,
+        440
+      ],
+      "id": "638a074f-e76c-4fcd-ae2b-59660133d527",
+      "name": "MongoDB Chat Memory",
+      "credentials": {
+        "mongoDb": {
+          "id": "EEnSNIgIrQwtruCv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/classify_text",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        300
+      ],
+      "id": "31372c19-3c23-459f-9f0c-79fb7ca2b511",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1280,
+        160
+      ],
+      "id": "b7d9e48d-475c-4088-8a85-057e89480adb",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a forensic document analysis expert AI. You will be given a JSON object that contains multiple detailed reports about a certificate image. Based on the combined evidence from these reports, you must determine if the document is **fraudulent** or **genuine**.\n\nYour task is to output a JSON object containing:\n1. \"document_classification\": either \"fraudulent\" or \"genuine\"\n2. \"confidence\": a float between 0 and 100 indicating your confidence percentage in this classification\n3. \"explanation\": a short paragraph (2–4 lines) explaining your reasoning using signals found in the input fields\n\n### JSON Input Format\n```json\n{\n  \"metadata_report\": { ... },\n  \"ocr_analysis_report\": { ... },\n  \"VIT_classifier_report\": {\n    \"label\": \"fraudulent\" | \"unedited\",\n    \"confidence\": float\n  },\n  \"AI_detection\": {\n    \"label\": \"AI-generated\" | \"Human-written\",\n    \"confidence\": float\n  }\n}\n**Input**: {{ $json }}",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        160
+      ],
+      "id": "bb71cf70-ef60-4151-802c-4e5d763a3b48",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": "qwen3:8b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1580,
+        400
+      ],
+      "id": "0750facc-b09f-4f17-a656-1e2cc4db2935",
+      "name": "Ollama Chat Model1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "L8qTvlzayTUxtcvw",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryMongoDbChat",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        400
+      ],
+      "id": "50e322a7-552b-4cc8-98b3-7775c1c66a0d",
+      "name": "MongoDB Chat Memory1",
+      "credentials": {
+        "mongoDb": {
+          "id": "EEnSNIgIrQwtruCv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4efb1912-370f-42ba-a682-f63d558abdd5",
+              "name": "sessionId",
+              "value": "=session-{{ $now }}",
+              "type": "string"
+            },
+            {
+              "id": "cb5cbfbe-976b-4786-b821-4022c7627ff5",
+              "name": "metadata_report",
+              "value": "={{ $json.metadata_report }}",
+              "type": "object"
+            },
+            {
+              "id": "522eb28a-1727-41bb-8aa4-c299adeaeb28",
+              "name": "ocr_analysis_report",
+              "value": "={{ $json.ocr_analysis_report }}",
+              "type": "object"
+            },
+            {
+              "id": "55e1ccd6-e0a6-47bb-9b4d-93da3bb3556a",
+              "name": "VIT_classifier_report",
+              "value": "={{ $json.VIT_classifier_report }}",
+              "type": "object"
+            },
+            {
+              "id": "6d18c3a5-75f8-4466-8c9e-e389f1ec48a3",
+              "name": "AI_detection",
+              "value": "={{ $json.AI_detection }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1460,
+        160
+      ],
+      "id": "cd4be4bf-e09e-4f53-a0dc-db8b27325c07",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"document_classification\": \"fraudulent\",\n  \"confidence\": 92.5,\n  \"explanation\": \"The VIT classifier strongly labels the document as fraudulent (confidence: 99.98%), and AI detection indicates human-written content (confidence: 99.89%). Despite the human-written classification, extensive spacing and alignment anomalies in the OCR report point toward forgery.\"\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        2000,
+        400
+      ],
+      "id": "48be61b7-e9e7-4f64-8d56-06f73766b17d",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2060,
+        40
+      ],
+      "id": "bc3519fb-c6bc-4ec5-bc86-0222e1434398",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "collection": "Document_Store",
+        "fields": "=filename,output",
+        "options": {
+          "useDotNotation": true
+        }
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        2480,
+        260
+      ],
+      "id": "85061a3d-02b6-4ddb-9578-402fc545ba60",
+      "name": "MongoDB",
+      "credentials": {
+        "mongoDb": {
+          "id": "EEnSNIgIrQwtruCv",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1a130f9-778d-41b8-8a16-0a93c6e77164",
+              "name": "filename",
+              "value": "={{ $json.filename }}",
+              "type": "string"
+            },
+            {
+              "id": "a8eb44cd-4f99-4e1c-a559-26ba6ad61eda",
+              "name": "output.document_classification",
+              "value": "={{ $json.output.document_classification }}",
+              "type": "string"
+            },
+            {
+              "id": "a03a41a1-1bfb-470a-806c-e0d7b8645f1c",
+              "name": "output.confidence",
+              "value": "={{ $json.output.confidence }}",
+              "type": "number"
+            },
+            {
+              "id": "b474dac5-48de-47da-b31c-013aef0497b9",
+              "name": "output.explanation",
+              "value": "={{ $json.output.explanation }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2280,
+        -40
+      ],
+      "id": "0583b144-5fa1-4b1a-9d1d-21cf68af2462",
+      "name": "Edit Fields2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB Chat Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "MongoDB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3246bbe0-129b-4ed5-a038-0167947942af",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "650aff75a3efd0adedfee9016e9cebe7751b62bfd162c63ac3f7f7ba41d7ad9d"
+  },
+  "id": "CKgyQKBmoSMiSVNE",
+  "tags": []
+}
