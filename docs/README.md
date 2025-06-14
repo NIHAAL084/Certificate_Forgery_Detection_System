@@ -152,13 +152,14 @@ The **AI-Powered Certificate Authentication System** is a multimodal document fo
 
 ```mermaid
 graph TD
-A[Form Trigger] --> B[Split Upload List]
-B --> C[Loop Over Images]
-C --> D1[HTTP: /analyze_image]
-C --> D2[HTTP: /classify_text]
-D1 --> E[Combine With Classify Text Result]
-E --> F[LLM JSON Formatter (Ollama)]
-F --> G[Save to MongoDB]
+    A[Form Trigger] --> B[Split Upload List]
+    B --> C[Loop Over Images]
+    C --> D1[Analyze Image (/analyze_image)]
+    C --> D2[Classify Text (/classify_text)]
+    D1 --> E[Combine With Classify Text Result]
+    D2 --> E
+    E --> F[LLM JSON Formatter (Ollama)]
+    F --> G[Save to MongoDB]
 ```
 
 * **D1** uses `/analyze_image`: returns metadata, OCR analysis, and ViT result.
