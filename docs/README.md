@@ -154,11 +154,11 @@ The **AI-Powered Certificate Authentication System** is a multimodal document fo
 graph TD
     A[Form Trigger] --> B[Split Upload List]
     B --> C[Loop Over Images]
-    C --> D1[Analyze Image (/analyze_image)]
-    C --> D2[Classify Text (/classify_text)]
-    D1 --> E[Combine With Classify Text Result]
+    C --> D1[Analyze Image - /analyze_image]
+    C --> D2[Classify Text - /classify_text]
+    D1 --> E[Combine Results]
     D2 --> E
-    E --> F[LLM JSON Formatter (Ollama)]
+    E --> F[LLM JSON Formatter - Ollama]
     F --> G[Save to MongoDB]
 ```
 
