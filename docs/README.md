@@ -2,7 +2,7 @@
 
 A modular, locally deployable certificate forgery detection system that leverages **Vision Transformers**, **OCR + Metadata analysis**, **AI text detection**, and **LLM-based reasoning** to evaluate whether certificates are genuine or fraudulent. Built using **FastAPI**, **n8n**, **MongoDB**, and **Ollama**.
 
-![Workflow Diagram](docs/forgery-workflow.png)
+![Workflow Diagram](forgery-workflow.png)
 
 ---
 
