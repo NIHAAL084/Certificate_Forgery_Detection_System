@@ -1,7 +1,7 @@
 [project]
-name = "rag-chatbot-project"
+name = "Document_Forgery_Detection"
 version = "0.1.0"
-description = "FAQ Chatbot"
+description = "This project involves the development and implementation of a comprehensive document forgery detection system specifically designed for certificate analysis using cutting-edge AI technologies including n8n automation, OCR (Optical Character Recognition), Classifiers and LLMs."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
